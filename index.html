@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Sobosuba Web</title>
+	<style>
+		body {
+			touch-action: none;
+			margin: 0;
+			border: 0 none;
+			padding: 0;
+			text-align: center;
+			background-color: black;
+			overflow: hidden;
+		}
+
+		#canvas {
+			display: block;
+			margin: 0 auto;
+			color: white;
+		}
+
+		#canvas:focus {
+			outline: none;
+		}
+
+		#status {
+			position: absolute;
+			left: 0;
+			top: 0;
+			right: 0;
+			bottom: 0;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+
+		#status-progress {
+			width: 250px;
+			height: 8px;
+			background-color: #38363a;
+			border-radius: 4px;
+			display: none;
+		}
+
+		#status-progress-inner {
+			height: 100%;
+			width: 0%;
+			background-color: #e0e0e0;
+			border-radius: 4px;
+			transition: width 0.2s ease-in-out;
+		}
+
+		#status-notice {
+			background-color: #5b3943;
+			border-radius: 4px;
+			padding: 4px 8px;
+			color: #e0e0e0;
+			font-family: sans-serif;
+			margin-left: 10px;
+			display: none;
+		}
+	</style>
+	<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
+	<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+</head>
+<body>
+	<canvas id="canvas">
+		Your browser does not support the canvas tag.
+	</canvas>
+	<div id="status">
+		<div id="status-progress" oncontextmenu="event.preventDefault();">
+			<div id="status-progress-inner"></div>
+		</div>
+		<div id="status-notice"></div>
+	</div>
+
+	<script src="index.js"></script>
+	<script>
+		const GODOT_CONFIG = {
+			"args": [],
+			"canvasResizePolicy": 2,
+			"ensureCrossOriginIsolationHeaders": true,
+			"executable": "index",
+			"experimentalVK": false,
+			"fileSizes": {},
+			"focusCanvas": true,
+			"gdextensionLibs": []
+		};
+		const engine = new Engine(GODOT_CONFIG);
+
+		(function() {
+			const statusProgress = document.getElementById('status-progress');
+			const statusProgressInner = document.getElementById('status-progress-inner');
+			const statusNotice = document.getElementById('status-notice');
+
+			let initializing = true;
+			let statusMode = 'hidden';
+
+			function setStatusMode(mode) {
+				if (statusMode === mode || !initializing) return;
+				[statusProgress, statusNotice].forEach(elem => elem.style.display = 'none');
+				if (mode === 'progress') {
+					statusProgress.style.display = 'block';
+				} else if (mode === 'notice') {
+					statusNotice.style.display = 'block';
+				}
+				statusMode = mode;
+			}
+
+			function setStatusNotice(text) {
+				while (statusNotice.lastChild) {
+					statusNotice.removeChild(statusNotice.lastChild);
+				}
+				const lines = text.split('\n');
+				lines.forEach((line) => {
+					statusNotice.appendChild(document.createTextNode(line));
+					statusNotice.appendChild(document.createElement('br'));
+				});
+			}
+
+			function displayFailureNotice(err) {
+				const msg = err.message || err;
+				console.error(msg);
+				setStatusNotice(msg);
+				setStatusMode('notice');
+				initializing = false;
+			}
+
+			const missing = Engine.getMissingFeatures();
+			if (missing.length) {
+				const missingArray = missing.map(missingFeature => `"${missingFeature}"`);
+				displayFailureNotice(`Error\nThe following features required to run Godot projects on the Web are missing:\n${missingArray.join(', ')}`);
+			} else {
+				setStatusMode('progress');
+				engine.startGame({
+					'onProgress': function (current, total) {
+						if (total > 0) {
+							statusProgressInner.style.width = `${(current / total) * 100}%`;
+						}
+					},
+				}).then(() => {
+					setStatusMode('hidden');
+					initializing = false;
+				}, displayFailureNotice);
+			}
+		})();
+	</script>
+</body>
+</html>
